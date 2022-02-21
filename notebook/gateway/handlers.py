@@ -156,7 +156,6 @@ class GatewayWebSocketClient(LoggingConfigurable):
             KG_HEADERS = GatewayClient.instance().token_regenerate()
             kwargs = GatewayClient.instance().load_connection_args(**kwargs)
             kwargs['headers'] = KG_HEADERS
-            print(f' Kwargs: {kwargs}' )
             self.log.debug('Token regenerated')
         else:
             kwargs = GatewayClient.instance().load_connection_args(**kwargs)
