@@ -25,8 +25,6 @@ from .managers import GatewayClient
 
 # Keepalive ping interval (default: 30 seconds)
 GATEWAY_WS_PING_INTERVAL_SECS = int(os.getenv('GATEWAY_WS_PING_INTERVAL_SECS', 30))
-EXPIRY_TIME = 0
-KG_HEADER = None
 
 
 
@@ -152,8 +150,8 @@ class GatewayWebSocketClient(LoggingConfigurable):
         )
         self.log.info('Connecting to {}'.format(ws_url))
         kwargs = {}
-        if GatewayClient.instance().kg_iamurl and GatewayClient.instance().kg_apikey is not None:
-            KG_HEADERS = GatewayClient.instance().token_regenerate()
+        if GatewayClient.instance().kg_authschem == 'ibm-iam':
+            KG_HEADERS = GatewayClient.instance().IBMTokenGenerator()
             kwargs = GatewayClient.instance().load_connection_args(**kwargs)
             kwargs['headers'] = KG_HEADERS
             self.log.debug('Token regenerated')

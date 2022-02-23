@@ -20,8 +20,6 @@ from ..utils import url_path_join
 from traitlets import Instance, Unicode, Int, Float, Bool, default, validate, TraitError
 from traitlets.config import SingletonConfigurable
 
-EXPIRY_TIME = 0
-KG_HEADER = None
 
 class GatewayClient(SingletonConfigurable):
     """This class manages the configuration.  It's its own singleton class so that we
@@ -29,7 +27,8 @@ class GatewayClient(SingletonConfigurable):
        to build request arguments out of the various config options.
 
     """
-
+    EXPIRY_TIME = 0
+    KG_HEADER = None
     url = Unicode(default_value=None, allow_none=True, config=True,
         help="""The url of the Kernel or Enterprise Gateway server where
         kernel specifications are defined and kernel management takes place.
@@ -208,6 +207,15 @@ class GatewayClient(SingletonConfigurable):
     def _kg_iamurl_default(self):
         return os.environ.get(self.kg_iamurl_env)
 
+    kg_authschem = Unicode(default_value=None, allow_none=True, config=True,
+        help="""The Authentication scheme of the kernel Gateway.  (JUPYTER_GATEWAY_AUTHSCHEM env var)
+        """
+    )
+    kg_authschem_env = 'JUPYTER_GATEWAY_AUTHSCHEM'
+
+    @default('kg_authschem')
+    def _kg_authschem_default(self):
+        return os.environ.get(self.kg_authschem_env)
 
     auth_token = Unicode(default_value=None, allow_none=True, config=True,
         help="""The authorization token used in the HTTP headers.  (JUPYTER_GATEWAY_AUTH_TOKEN env var)
@@ -286,7 +294,7 @@ class GatewayClient(SingletonConfigurable):
     KERNEL_LAUNCH_TIMEOUT = int(os.environ.get('KERNEL_LAUNCH_TIMEOUT', 40))
 
 
-    def headergenerator(self, apiKey, iamurl):
+    def IBMHeaderGenerator(self, apiKey, iamurl):
         custom_header = {'Content-Type': 'application/x-www-form-urlencoded'}
         raw_data = {
             'grant_type': 'urn:ibm:params:oauth:grant-type:apikey',
@@ -300,17 +308,17 @@ class GatewayClient(SingletonConfigurable):
         kg_header={"Authorization":full_token}
         return kg_header, expiry_time
 
-    def token_regenerate(self):
-        list_of_Globals = globals()
+    def IBMTokenGenerator(self):
+        # list_of_Globals = globals()
         epoch_time = int(time.time())
-        if epoch_time >= list_of_Globals['EXPIRY_TIME']-10:
+        if epoch_time >= self.EXPIRY_TIME-10:
         #Creating KG_HEADERS before connecting to WebSocket.
-            kg_header, iam_token_expiry = self.headergenerator(self.kg_apikey, self.kg_iamurl)
-            list_of_Globals['KG_HEADER'] = kg_header
-            list_of_Globals['EXPIRY_TIME'] = iam_token_expiry
+            kg_header, iam_token_expiry = self.IBMHeaderGenerator(self.kg_apikey, self.kg_iamurl)
+            self.KG_HEADER = kg_header
+            self.EXPIRY_TIME = iam_token_expiry
             KG_HEADERS = kg_header
         else:
-            KG_HEADERS = list_of_Globals['KG_HEADER']
+            KG_HEADERS = self.KG_HEADER
         return KG_HEADERS
 
 
@@ -328,8 +336,8 @@ class GatewayClient(SingletonConfigurable):
             GatewayClient.KERNEL_LAUNCH_TIMEOUT = int(self.request_timeout)
         # Ensure any adjustments are reflected in env.
         os.environ['KERNEL_LAUNCH_TIMEOUT'] = str(GatewayClient.KERNEL_LAUNCH_TIMEOUT)
-        if self.kg_apikey and self.kg_iamurl is not None:
-            KG_HEADERS = self.token_regenerate()
+        if self.kg_authschem == 'ibm-iam':
+            KG_HEADERS = self.IBMTokenGenerator()
             self._static_args['headers'] = KG_HEADERS
         else:
             self._static_args['headers'] = json.loads(self.headers)
